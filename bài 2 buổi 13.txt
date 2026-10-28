@@ -1,0 +1,75 @@
+ TƯ DUY HỆ THỐNG VÀ KIẾN TRÚC LƯU TRỮ1. Phân tích Mô hình IPO & DIKW[INPUT]                              [PROCESS]                          [OUTPUT]
+Tệp nhật ký thô           -->  Script lọc dữ liệu stream   -->  Báo cáo sự cố
+(data/log-he-thong.log)        (scripts/auto_report.bat)        (backup/bao-cao-su-co.txt)
+Cấp độPhân tích áp dụng tại GreenTechDataHàng triệu dòng log thô dạng text từ 100 trạm IoT gửi về máy chủ.InformationCác dòng log đã lọc có chứa mã lỗi ERROR 404, CRITICAL, TIMEOUT.KnowledgeX định trạm cảm biến nào lặp lại lỗi nhiều nhất và thời điểm mạng bị ngắt kết nối.WisdomRa quyết định hạ tầng: Nâng cấp phần cứng, thay mới trạm bị hỏng hoặc đổi hạ tầng 4G/LoRaWAN.2. Sơ đồ Kiến trúc Cây thư mục 4 Trụ cộtCấu trúc lưu trữ được chuẩn hóa theo định dạng kebab-case, không dấu và không khoảng trắng:Plaintextgreentech-system/
+├── docs/                      # Trụ cột 1: Tài liệu (SRS, README)
+│   ├── README.md
+│   └── srs-he-thong.docx
+├── scripts/                   # Trụ cột 2: Xử lý tự động hóa (.bat / .sh)
+│   └── auto_report.bat
+├── data/                      # Trụ cột 3: Dữ liệu (Log thô & Cơ sở dữ liệu Excel)
+│   ├── log-he-thong.log
+│   └── quan-ly-thiet-bi.xlsx
+├── backup/                    # Trụ cột 4: Lưu trữ & Phục hồi báo cáo
+│   └── bao-cao-su-co.txt
+└── .env                       # File ẩn chứa biến môi trường nhạy cảm
+II. XÂY DỰNG CÁC MODULE THỰC THI Module 1: Khởi tạo "Căn cứ số" (Terminal)1. Khai báo 01 dòng lệnh khởi tạo duy nhấtMở Windows PowerShell hoặc CMD tại thư mục muốn chứa dự án và chạy dòng lệnh sau:Trên Windows PowerShell:PowerShellmkdir greentech-system/docs, greentech-system/scripts, greentech-system/data, greentech-system/backup; Set-Location greentech-system; "DB_HOST=localhost`nDB_USER=admin`nDB_PASS=GreenTech@2026" | Out-File -Encoding utf8 .env
+Trên CMD (Command Prompt):DOSmkdir greentech-system\docs greentech-system\scripts greentech-system\data greentech-system\backup && cd greentech-system && echo DB_HOST=localhost> .env && echo DB_USER=admin>> .env && echo DB_PASS=GreenTech@2026>> .env
+2. Kiểm tra cấu trúc vừa tạoSử dụng đường dẫn tương đối để di chuyển và kiểm tra:DOStree /F
+Bẫy Terminal: Tuyệt đối không dùng Tiếng Việt có dấu hoặc khoảng trắng cho tên thư mục gốc và thư mục con. Luôn dùng dấu gạch ngang - (kebab-case). Module 2: Robot lọc Log tự động (auto_report.bat)Tạo file scripts/auto_report.bat bằng trình chỉnh sửa mã nguồn (VS Code/Notepad++) với nội dung sau:DOS@echo off
+:: Thiet lap trang ma UTF-8 de hiển thi tieng Viet / ky tu chuan
+chcp 65001 > nul
+:: Buoc 1: In tieu de bao cao (Ghi noi vao file backup)
+echo =================================================== >> ..\backup\bao-cao-su-co.txt
+echo      BAO CAO SU CO HE THONG - GREENTECH LOG ROBOT >> ..\backup\bao-cao-su-co.txt
+echo      Thoi gian chay: %DATE% %TIME%                 >> ..\backup\bao-cao-su-co.txt
+echo =================================================== >> ..\backup\bao-cao-su-co.txt
+:: Buoc 2: Loc log theo luong Stream (Pipe) de khong lam tran RAM
+echo [INFO] Dang quet va loc cac su co CRITICAL, ERROR va TIMEOUT...
+type ..\data\log-he-thong.log | findstr /I "CRITICAL ERROR TIMEOUT" >> ..\backup\bao-cao-su-co.txt
+echo [SUCCESS] Qua trinh loc log hoan tat!
+echo Ket qua da duoc ghi noi vao: backup\bao-cao-su-co.txt
+echo.
+pause
+Kết quả mẫu sau khi chạy Script (backup/bao-cao-su-co.txt)Plaintext
+BAO CAO SU CO HE THONG - GREENTECH LOG ROBOT 
+Thoi gian chay: Wed 28/10/2026 10:15:00.25 
+[10:00:12] ERROR 404 - tram-cam-bien-27 khong phan hoi
+[10:00:45] CRITICAL - mat ket noi may chu trung tam
+[10:01:03] TIMEOUT - tram-cam-bien-58 qua thoi gian cho
+Bẫy Script & Thẩm định (Audit):Toán tử >> dùng để ghi nối (append). Nếu nhầm sang > sẽ ghi đè toàn bộ báo cáo cũ.Audit quy tắc an toàn: Không bao giờ chèn các lệnh xóa nguy hiểm như del /f /s /q hoặc rm -rf vào script tự động. Module 3: Tài liệu hướng dẫn vận hành1. File docs/README.md (Render chuẩn trên GitHub)Markdown# GreenTech Infrastructure Management System
+Hệ thống quản lý hạ tầng phần cứng và xử lý nhật ký máy chủ cho trang trại thông minh **GreenTech**.
+## 1. Hướng dẫn thực thi Script tự động
+Để kích hoạt Robot lọc log sự cố, truy cập thư mục `scripts` và chạy tệp lệnh:
+```cmd
+cd scripts
+auto_report.bat
+2. Checklist kiểm tra trạm cảm biến định kỳ[x] Kiểm tra nguồn điện Solar và Pin dự phòng tại 100 trạm[x] Kiểm tra kết nối mạng 4G/LoRaWAN[ ] Chạy script tự động lọc log sự cố daily[ ] Đơn dẹp và nén các tệp log thô cũ (> 30 ngày)[ ] Đối soát danh mục linh kiện phần cứng trên Excel3. Bảng thông số linh kiện phần cứng chuẩnMã Linh KiệnTên Thiết BịLoại StorageĐơn Giá (VNĐ)LK-CPU-01Intel Core i3-12100N/A2,500,000LK-RAM-01Kingston Fury 8GB DDR4N/A850,000LK-SSD-01SSD Samsung 256GB NVMeSSD1,200,000LK-HDD-01HDD Seagate 1TB 3.5 inchHDD1,100,000
+#### 2. Hướng dẫn định dạng SRS Document (`docs/srs-he-thong.docx`)
+* **Bước 1 (Gán Heading Styles):** 
+  * Chọn các tiêu đề chương $\rightarrow$ gán **Heading 1**.
+  * Chọn các tiêu đề mục nhỏ $\rightarrow$ gán **Heading 2** và **Heading 3**.
+* **Bước 2 (Chèn Auto TOC):** Đặt con trỏ tại trang đầu (sau trang bìa) $\rightarrow$ **References** $\rightarrow$ **Table of Contents** $\rightarrow$ Chọn **Automatic Table 1**.
+Module 4: Đối soát tài nguyên trên Microsoft Excel
+1. Thiết kế 2 Sheet trong `quan-ly-thiet-bi.xlsx`
+* **Sheet `danh-muc-linh-kien` (Bảng cha):**
+
+| Cột A (`ma_linh_kien`) | Cột B (`ten_thiet_bi`) | Cột C (`don_gia`) | Cột D (`loai_storage`) |
+| :--- | :--- | :--- | :--- |
+| LK-CPU-01 | Intel Core i3-12100 | 2500000 | N/A |
+| LK-RAM-01 | Kingston Fury 8GB DDR4 | 850000 | N/A |
+| LK-SSD-01 | SSD Samsung 256GB NVMe | 1200000 | SSD |
+
+* **Sheet `trang-thai-tram` (Bảng con):**
+
+| Cột A (`ma_tram`) | Cột B (`ma_linh_kien`) | Cột C (`ten_thiet_bi`) | Cột D (`dung_luong_ram`) | Cột E (`ngay_lap_dat`) |
+| :--- | :--- | :--- | :--- | :--- |
+| TRAM-001 | LK-RAM-01 | *(Cần điền công thức)* | 8GB | 2026-01-15 |
+
+#### 2. Công thức đối soát chính xác (Khắc phục lỗi `#N/A`)
+
+Tại ô **C2** của sheet `trang-thai-tram`, nhập công thức sau và kéo xuống toàn bộ cột:
+
+```excel
+=VLOOKUP(TRIM(B2), 'danh-muc-linh-kien'!$A$2:$D$100, 2, FALSE)
+Giải thích chi tiết công thức:TRIM(B2): Tự động cắt bỏ các khoảng trắng thừa ở đầu/cuối của mã linh kiện tại ô B2.'danh-muc-linh-kien'!$A$2:$D$100: Vùng dữ liệu tra cứu được cố định tuyệt đối bằng ký tự $.2: Cột cần lấy dữ liệu về (ten_thiet_bi).FALSE: Tìm kiếm chính xác 100%. Bẫy Excel: Vùng dữ liệu không được chứa hàng trống (Empty Row) hoặc ô bị trộn (Merge Cell) để các tính năng AutoFilter và VLOOKUP hoạt động chính xác.III. TÍNH TOÁN BẮNG THÔNG MẠNG & BẪY PHẦN CỨNGBài toán tải Log 500MB qua mạng IoT Trang trạiĐổi đơn vị Băng thông:$$\text{Tốc độ tải (MB/s)} = \frac{\text{Băng thông (Mbps)}}{8}$$Ví dụ: Nếu đường truyền 4G tại trang trại đạt tốc độ 80 Mbps:$$\text{Tốc độ thực tế} = \frac{80}{8} = 10 \text{ MB/s}$$Thời gian truyền tải tệp log 500 MB:$$\text{Thời gian tải} = \frac{500 \text{ MB}}{10 \text{ MB/s}} = 50 \text{ giây}$$IV. TỔNG HỢP DANH SÁCH BẪY DỮ LIỆU VÀ CÁCH PHÒNG TRÁNHSTTTên Bẫy Kỹ ThuậtRủi Ro Hệ ThốngGiải Pháp Chuẩn Hóa1Thư mục có dấu / khoảng trắngScript bị ngắt, gãy đường dẫn TerminalDùng chuẩn kebab-case (VD: greentech-system).2Lệnh xóa nguy hiểmMất toàn bộ dữ liệu máy chủAudit script trước khi chạy; cấm dùng del /f /s /q.3Nhầm toán tử > và >>Xóa sạch báo cáo cũDùng >> để nối tiếp dữ liệu vào file.4Lỗi khoảng trắng trong ExcelHàm VLOOKUP trả về lỗi #N/ABọc TRIM() cho mã dò tìm.5Merge Cell / Hàng trốngAutoFilter bị ngắt quãng, sai vùng dữ liệuĐảm bảo bảng dữ liệu dạng ma trận phẳng, liền mạch.6Sai hệ số tính thời gianƯớc lượng sai thời gian downtime của mạngChia cho 8 để đổi từ Mbps sang MB/s.
